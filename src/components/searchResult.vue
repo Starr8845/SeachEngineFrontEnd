@@ -1,66 +1,101 @@
-<template>
-<div id="searchResult">
-  <div id="header">
-  <input type="text" v-model="query" id="input" v-on:keyup.enter="submit">
-  <button v-on:click="submit" id="submit">search</button>
-  </div>
-  <div id="result"><p id="result_number">{{ tips }}</p>
-  	<div v-for="item in part_response">
-	    <a id="title" v-bind:href="item.url" target="_blank" class="item_title">{{ item.title}}</a>
-	    <p class="item_description">{{ item.description }}</p>
-	    <li id="small_url_content"><a v-bind:href="item.url" id="small_url" target="_blank">{{ item.url }}</a></li>
-	    <li id="date">&nbsp{{ item.date }}</li>
-    </div>
-	</div>
-  <div id="footer">
-  	<button v-if="show_button" v-for="n in parseInt(length/10)+1" v-on:click="page_select=n">{{n}}</button>
-  </div>
-</div>
+<template>			
+	<div id="searchResult">
+		<header class="header-two sticky-header">
+			<div class="header-navigation">
+				<div class="container-fluid d-flex align-items-center justify-content-between container-1470">
+					<div class="header-left">
+						<div class="site-logo">
+							<a href=""><img src="../assets/logo-2.png" alt="Markpro"></a>
+						</div>
+					</div>
+				</div>
+			</div>
+		</header>
+		
+		<div class="form-group" >
+			<div class="input-group" style="left:15%; top:20px">  
+				<label>Rank Search<input type="radio" v-model="SearchType" value="rank"/></label>
+				<label>Boolen Search<input type="radio" v-model="SearchType" value="boolen"/></label>
+			</div>
 
+			<div class="input-group" style="width:40%; left:15%; top:20px">
+			<input type="text" placeholder="input query" v-model="query"  class="form-control" v-on:keyup.enter="submit" >
+
+			<span class="input-group-btn">
+				<button type="submit" class="btn btn-secondary" v-on:click="submit">Search</button>
+			</span>
+			
+			</div>
+		</div>
+
+
+		
+	  <div class="qadiv">
+		<p class="result_number">{{ tips_qa }}</p>
+		<p class="item_description"><b>{{ qa.ans }}</b> </p>
+		<p class="item_description" v-html="qa.text"> </p>
+		<!-- <a id="title" v-bind:href="qa.url" target="_blank" class="item_title">{{ qa.title}}</a> -->
+		<li id="small_url_content"><a v-bind:href="qa.doc.url" id="small_url" target="_blank">{{ qa.doc_id }} {{ qa.doc.url }}</a></li>
+		<li id="date">&nbsp{{ qa.doc.timestamp }}</li>
+	  </div>
+	
+	<div class="leftdiv">
+	  <div class="result">
+		<p class="result_number">{{ tips_time }}</p>
+		<p class="result_number">{{ tips_summary }}</p>
+		<div v-for="item in summary">
+			<p class="item_description">{{ item.text }}</p>
+			<p v-for="doc in item.doc_ids">
+				<a   target="_blank" style="font-size: 2px" v-bind:href="ranksearch[doc].url"> rank:{{ doc }}, {{ ranksearch[doc].url}}</a>
+			 </p>
+			<!-- <br/><br/> -->
+		</div>
+	  </div>
+	  
+	  <div class="result">
+		<p class="result_number">{{ tips }}</p>
+		  <div v-for="item in part_response">
+			<!-- <a id="title" v-bind:href="item.url" target="_blank" class="item_title">{{ item.title}}</a> -->
+			<li id="small_url_content"><a v-bind:href="item.url" id="small_url" target="_blank">{{ item.url }}</a></li>
+			<li id="date">&nbsp{{ item.timestamp }}</li>
+			<p class="item_description">{{ item.text.slice(0,500)+'...' }}</p>
+			<p> &nbsp </p>
+		</div>
+		</div>
+	
+	  <div id="footer">
+		  <button v-if="show_button" v-for="n in parseInt(length/10)+1" v-on:click="page_select=n">{{n}}</button>
+	  </div>
+	</div>
+	</div>
+	
 </template>
 
 <script>
 export default {
   name: 'searchResult',
   props: ['parentQuery'],
-  mounted: function(){
-  	var input_query=document.getElementById('input')
-  	input_query.focus()
-  },
-  /*updated: function(){
-  	if(this.query!=""){
-	  	var split_query = this.query.split("")
-	  	var item_description = document.getElementsByClassName('item_description')
-	  	var item_title = document.getElementsByClassName('item_title')
-	  	var re= new RegExp(this.query,"g")
-	  	var index
-	  	for(index in item_description){
-	  		var description_text = item_description[index].innerHTML
-	  		var title_text = item_title[index].innerHTML
-	  		title_text = title_text.replace(re,"<span style='color:red'>"+this.query+"</span>")
-	  		description_text = description_text.replace(re,"<span style='color:red'>"+this.query+"</span>")
-	  		item_description[index].innerHTML=description_text
-	  		item_title[index].innerHTML = title_text
-	  	}
-  	}
-  	//console.log(text)
-  	//alert('updated')
-  },*/
   data () {
     return {
       msg: 'Welcome to Your Vue.js App',
-      query: this.parentQuery,
-      //query: '美国',
+      query: this.parentQuery.query,
+	  SearchType: this.parentQuery.SearchType,
       page_select: 1,
       tips: '请输入要搜索的内容',
       show_button: false,
-      response: []
+      response: {},
+	  summary : [],
+	  tips_summary:'',
+	  qa:{doc:""},
+	  tips_qa:'',
+	  tips_time:'',
+	  ranksearch:[],
     }
   },
   computed:{
   	length: function(){
   		var len=0
-  		for(let item in this.response){
+  		for(let item in this.ranksearch){
   			len++
   		}
   		return len
@@ -69,36 +104,103 @@ export default {
   		var part=[]
   		for(let start = (this.page_select-1)*10;start<this.page_select*10;start++){
   			if(start<this.length){
-  				part.push(this.response[start])
+  				part.push(this.ranksearch[start])
   			}
   		}
-  		//shixian guanjianzi gaoliang;
-  		var split_query = this.query.split("")
-  		console.log(split_query)
-  		var char
-  		var part_to_str =  JSON.stringify(part)
+		// console.log(part)
   		return part
   	}
   },
   methods: {
+	highLightFun: function(text, begin, end){
+		// console.log(begin)
+		// console.log(end)
+		let str1 = text.slice(0,begin)
+		let str2 = text.slice(begin, end)
+		let str3 = text.slice(end)
+		let result = str1 + '<b>' + str2 + '</b>' + str3;
+		// console.log(result)
+		return result
+	},
   	submit: function(){
-  		this.tips='正在查询。。。'
+
+  		this.tips='正在查询...'
+		this.ranksearch = []
+		this.qa={doc:""},
+		this.tips_qa=""
+		this.tips_summary=""
+		this.summary={}
+		this.tips_time=''
   		var qs = require('qs');
-  		//alert(this.query)
-  		this.$axios.post('./back_end.php',
-  			qs.stringify({
-  			'question': this.query
-  		})).then(response=>{
+  		let url=''
+		if (this.SearchType=='rank'){
+			url = "http://111.186.2.142:25565/db/100/"+this.query
+		}
+		else{
+			url = "http://111.186.2.142:25565/db/1000/"+this.query
+		}
+		// console.log("查询的url为:");
+		// console.log(url);
+		// console.log(this.SearchType)
+		this.$axios({
+			method: "get",
+			params: {},  
+			url: url
+      	}).then(response=>{
+			
+			// console.log(response);
   			this.show_button=true
   			this.response=response.data
-  			//console.log(response.data)
-  			this.tips='为您找到大约'+this.length+'个结果'
+			this.ranksearch = this.response.result
+			this.tips_time = '共耗时'+this.response.time.toFixed(3)+'s.'
+  			this.tips=this.SearchType+' 检索到前'+this.length+'个内容'
+
+			if (this.SearchType=='rank'){
+				this.qa = response.data.answer
+				this.qa = {
+					'ans':response.data.answer.ans,
+					'text':this.highLightFun(response.data.answer.context.text,response.data.answer.context.start, response.data.answer.context.end),
+					'doc': this.ranksearch[response.data.answer.doc_id],
+					'doc_id':'rank:'+response.data.answer.doc_id
+				}
+
+
+				this.tips_qa='智能问答生效, 结果如下'
+				this.summary=[]
+				// console.log(response.data.summary)
+				// console.log(response.data.summary['summaries'])
+				// console.log(response.data.summary['summaries'].length)
+				let len = response.data.summary['summaries'].length
+				for (let i=0;i<len;++i){
+					// console.log(i)
+					this.summary.push({
+						"text":response.data.summary['summaries'][i],
+						"doc_ids":response.data.summary['classes'][i],
+					})
+				}
+				// this.summary = response.data.summary
+				this.tips_summary='搜索到'+this.summary.length+'条相关事件,摘要如下'
+				
+			}
+			
   		})
   		.catch(error=>{
-  			this.tips='查询失败，请检查网络连接'
-  			console.log(error)
+  			this.tips='快速查询失败, 请检查网络连接'
+			if (this.SearchType=='rank'){
+			this.tips_qa='生成智能问答失败, 请检查网络连接'
+			this.tips_summary='生成摘要失败, 请检查网络连接'
+			}
+			
+  			// console.log(error)
   		})
-  	}
+  		
+  	},
+  },
+  mounted(){
+	if(this.query==""||this.query==null||this.query==undefined){
+		return 
+	}
+	this.submit()
   }
 }
 </script>
@@ -113,7 +215,6 @@ export default {
 	height: 100%;
 	margin: 0;
 	padding: 0;
-	
 }
 #header{
     margin-top: 0;
@@ -126,47 +227,40 @@ export default {
     left: 0px;
     z-index: 1;
 }
-#input{
-	width: 600px;
-    height: 35px;
-    //border-color:#39F;
-    border-style:solid;
-    border-width:1px;
-    font-size:24px;
-    position: relative;
-    left: 15%;
-    top: 8px;
-}
-#submit{
-	height:40px;
-    width:120px;
-    background-color:#39F;
-    border:none;
-    //border-style:solid;
-    font-size:24px;
-    color:#FFF;
-    margin-top: -1px;
-    //margin-left:-10px;
-    position: relative;
-    top: 8px;
-    left: 10%;
-}
-#result{
-    height: auto;
+
+.leftdiv{
+	height: auto;
     width: 40%;
-    margin-top: 80px;
     position: relative;
-    left: 15%;
+    left: -10%;
+	float:left;
+	display:inline;
 }
-#result_number{
+.result{
+    height: auto;
+    margin-top: 20px;
+    position: relative;
+}
+
+.qadiv{
+    height: auto;
+    width: 25%;
+    margin-top: 40px;
+    position: relative;
+    left: 65%;
+	float:left;
+	display:inline;
+}
+
+.result_number{
 	color: gray;
 	font-size: 16px;
 }
-#result a{
+.result a{
     font-size: 18px;
     color: #0000FF;
 }
-#result p{
+.result p{
     margin:2px;
 }
 /*#result li{
@@ -195,8 +289,7 @@ export default {
 }
 #footer{
 	position: relative;
-	left: 15%;
-	
+	left: 0%;
 }
 #footer button{
 	margin-right:20px;
@@ -204,11 +297,14 @@ export default {
 	background-color: #FFF;
 	border:solid 1px #FFF;
 	padding: 10px 14px 10px 14px;
-	//border:none;
 	color: #191970;
 }
 #footer button:hover{
 	border:solid 1px #39F;
 	cursor: hand;
 }
+.item_description{
+	word-wrap:break-word
+}
+
 </style>
